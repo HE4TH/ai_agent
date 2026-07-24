@@ -2,6 +2,7 @@ import { auth } from '@/auth';
 import { classifyRequest } from '@/lib/llm/router';
 import { answerWithRAG } from '@/lib/rag/answer';
 import { runAgent } from '@/lib/llm/agent';
+import { answerStats } from '@/lib/stats/answer';
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -26,7 +27,7 @@ export async function POST(request: Request) {
       reply = await runAgent(message, session.user.id);
       break;
     case 'stats':
-      reply = '통계 기능은 준비 중입니다';
+      reply = await answerStats();
       break;
   }
 
