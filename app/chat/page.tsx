@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { IconCalendar, IconX } from '@tabler/icons-react';
+import { IconCalendar, IconLogout, IconX } from '@tabler/icons-react';
+import { signOut } from 'next-auth/react';
 import CalendarPanel from '@/components/CalendarPanel';
 
 type Message = {
@@ -82,13 +83,22 @@ export default function ChatPage() {
             </h1>
           </div>
 
-          <button
-            onClick={() => setPanelOpen((prev) => !prev)}
-            className="flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors hover:bg-black/5"
-            aria-label="예약 목록 보기"
-          >
-            <IconCalendar size={22} color="#d97757" stroke={1.75} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPanelOpen((prev) => !prev)}
+              className="flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors hover:bg-black/5"
+              aria-label="예약 목록 보기"
+            >
+              <IconCalendar size={22} color="#d97757" stroke={1.75} />
+            </button>
+            <button
+              onClick={() => signOut({ callbackUrl: '/login' })}
+              className="flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors hover:bg-black/5"
+              aria-label="로그아웃"
+            >
+              <IconLogout size={22} color="#2b2a26" stroke={1.75} />
+            </button>
+          </div>
         </header>
 
         <main
