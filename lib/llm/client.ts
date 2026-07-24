@@ -107,3 +107,23 @@ export async function callClaude(prompt: string) {
 
   return result;
 }
+
+export async function callClaudeWithTools(
+  messages: OpenAI.Chat.ChatCompletionMessageParam[],
+  tools: OpenAI.Chat.ChatCompletionTool[]
+) {
+  const response = await withRetry(() =>
+    withTimeout((signal) =>
+      client.chat.completions.create(
+        {
+          model: 'anthropic/claude-haiku-4.5',
+          messages,
+          tools,
+        },
+        { signal }
+      )
+    )
+  );
+
+  return response.choices[0].message;
+}
