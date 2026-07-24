@@ -1,4 +1,5 @@
 import OpenAI, { APIError } from 'openai';
+import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export const client = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
@@ -84,22 +85,57 @@ export async function withRetry<T>(
   }
 }
 
+export async function logLLMCall(
+  requestType: string,
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  latencyMs: number
+) {
+  try {
+    const { error } = await supabaseAdmin.from('llm_logs').insert({
+      request_type: requestType,
+      model,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      latency_ms: latencyMs,
+    });
+
+    if (error) {
+      console.error('LLM 로그 기록 실패:', error);
+    }
+  } catch (error) {
+    console.error('LLM 로그 기록 실패:', error);
+  }
+}
+
 export async function callClaude(prompt: string) {
   const cached = cache.get(prompt);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;
   }
 
+  const model = 'anthropic/claude-haiku-4.5';
+  const startedAt = Date.now();
+
   const response = await withRetry(() =>
     withTimeout((signal) =>
       client.chat.completions.create(
         {
-          model: 'anthropic/claude-haiku-4.5',
+          model,
           messages: [{ role: 'user', content: prompt }],
         },
         { signal }
       )
     )
+  );
+
+  await logLLMCall(
+    'chat',
+    model,
+    response.usage?.prompt_tokens ?? 0,
+    response.usage?.completion_tokens ?? 0,
+    Date.now() - startedAt
   );
 
   const result = response.choices[0].message.content;
@@ -112,17 +148,28 @@ export async function callClaudeWithTools(
   messages: OpenAI.Chat.ChatCompletionMessageParam[],
   tools: OpenAI.Chat.ChatCompletionTool[]
 ) {
+  const model = 'anthropic/claude-haiku-4.5';
+  const startedAt = Date.now();
+
   const response = await withRetry(() =>
     withTimeout((signal) =>
       client.chat.completions.create(
         {
-          model: 'anthropic/claude-haiku-4.5',
+          model,
           messages,
           tools,
         },
         { signal }
       )
     )
+  );
+
+  await logLLMCall(
+    'agent',
+    model,
+    response.usage?.prompt_tokens ?? 0,
+    response.usage?.completion_tokens ?? 0,
+    Date.now() - startedAt
   );
 
   return response.choices[0].message;

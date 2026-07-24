@@ -91,3 +91,14 @@ as $$
   order by document_chunks.embedding <=> query_embedding
   limit match_count;
 $$;
+
+-- LLM 호출 로그 (요청 종류별 토큰 사용량, 응답 시간 기록)
+create table if not exists llm_logs (
+  id uuid primary key default gen_random_uuid(),
+  request_type text not null,
+  model text not null,
+  input_tokens integer,
+  output_tokens integer,
+  latency_ms integer,
+  created_at timestamptz not null default now()
+);

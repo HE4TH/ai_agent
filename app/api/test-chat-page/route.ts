@@ -19,7 +19,7 @@ const html = `<!DOCTYPE html>
       const resultEl = document.getElementById('result');
       resultEl.textContent = '요청 중...';
 
-      const res = await fetch('/api/chat', {
+      const res = await fetch('/api/router-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message }),
