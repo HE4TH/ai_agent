@@ -20,6 +20,8 @@ type CacheEntry = {
 
 const cache = new Map<string, CacheEntry>();
 
+const DEFAULT_MODEL = 'anthropic/claude-haiku-4.5';
+
 function isRetryableError(error: unknown): boolean {
   if (!(error instanceof APIError)) return false;
   const status = error.status;
@@ -109,13 +111,12 @@ export async function logLLMCall(
   }
 }
 
-export async function callClaude(prompt: string) {
+export async function callClaude(prompt: string, model: string = DEFAULT_MODEL) {
   const cached = cache.get(prompt);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;
   }
 
-  const model = 'anthropic/claude-haiku-4.5';
   const startedAt = Date.now();
 
   const response = await withRetry(() =>
@@ -146,9 +147,9 @@ export async function callClaude(prompt: string) {
 
 export async function callClaudeWithTools(
   messages: OpenAI.Chat.ChatCompletionMessageParam[],
-  tools: OpenAI.Chat.ChatCompletionTool[]
+  tools: OpenAI.Chat.ChatCompletionTool[],
+  model: string = DEFAULT_MODEL
 ) {
-  const model = 'anthropic/claude-haiku-4.5';
   const startedAt = Date.now();
 
   const response = await withRetry(() =>

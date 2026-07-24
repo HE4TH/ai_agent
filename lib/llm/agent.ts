@@ -109,7 +109,11 @@ export async function runAgent(userMessage: string, userId: string): Promise<str
     { role: 'user', content: userMessage },
   ];
 
-  const message = await callClaudeWithTools(messages, tools as OpenAI.Chat.ChatCompletionTool[]);
+  const message = await callClaudeWithTools(
+    messages,
+    tools as OpenAI.Chat.ChatCompletionTool[],
+    'anthropic/claude-haiku-4.5'
+  );
 
   if (!message.tool_calls || message.tool_calls.length === 0) {
     return message.content;
@@ -136,7 +140,8 @@ export async function runAgent(userMessage: string, userId: string): Promise<str
 
   const finalMessage = await callClaudeWithTools(
     messages,
-    tools as OpenAI.Chat.ChatCompletionTool[]
+    tools as OpenAI.Chat.ChatCompletionTool[],
+    'anthropic/claude-haiku-4.5'
   );
 
   return finalMessage.content;
