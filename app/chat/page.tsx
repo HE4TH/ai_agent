@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { IconCalendar, IconX } from '@tabler/icons-react';
+import CalendarPanel from '@/components/CalendarPanel';
 
 type Message = {
   role: 'user' | 'assistant';
@@ -13,6 +15,9 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -40,6 +45,10 @@ export default function ChatPage() {
       const reply = data.reply ?? data.error ?? '오류가 발생했습니다.';
 
       setMessages((prev) => [...prev, { role: 'assistant', content: reply }]);
+
+      if (data.category === 'reservation') {
+        setRefreshTrigger((prev) => prev + 1);
+      }
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -57,33 +66,40 @@ export default function ChatPage() {
   };
 
   return (
-    <div
-      className="flex justify-center"
-      style={{ height: '100vh', backgroundColor: '#f7f3e9' }}
-    >
-      <div className="flex w-full max-w-[480px] flex-col" style={{ height: '100vh' }}>
+    <div className="flex" style={{ height: '100vh', backgroundColor: '#f7f3e9' }}>
+      <div className="flex flex-1 flex-col overflow-hidden">
         <header
-          className="flex shrink-0 items-center gap-2 border-b px-4 py-4"
+          className="flex shrink-0 items-center justify-between border-b px-8 py-5"
           style={{ borderColor: '#e8e4d9' }}
         >
-          <span
-            className="inline-block h-3 w-3 rounded-full"
-            style={{ backgroundColor: '#d97757' }}
-          />
-          <h1 className="text-base font-medium" style={{ color: '#2b2a26' }}>
-            예약 도우미
-          </h1>
+          <div className="flex items-center gap-3">
+            <span
+              className="inline-block h-3.5 w-3.5 rounded-full"
+              style={{ backgroundColor: '#d97757' }}
+            />
+            <h1 className="text-lg font-medium" style={{ color: '#2b2a26' }}>
+              예약 도우미
+            </h1>
+          </div>
+
+          <button
+            onClick={() => setPanelOpen((prev) => !prev)}
+            className="flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors hover:bg-black/5"
+            aria-label="예약 목록 보기"
+          >
+            <IconCalendar size={22} color="#d97757" stroke={1.75} />
+          </button>
         </header>
 
         <main
-          className="flex flex-col gap-4 px-4 py-6"
+          className="flex flex-col gap-6 px-8 py-8"
           style={{ flex: 1, overflowY: 'auto' }}
         >
           {messages.map((message, index) =>
             message.role === 'user' ? (
               <div key={index} className="flex justify-end">
                 <div
-                  className="max-w-[80%] px-4 py-2 text-sm"
+                  className="max-w-[70%] px-5 py-3 text-base"
                   style={{
                     backgroundColor: '#45443f',
                     color: '#f7f3e9',
@@ -96,20 +112,20 @@ export default function ChatPage() {
             ) : (
               <div key={index} className="flex justify-start">
                 <div
-                  className="max-w-[90%] text-sm"
+                  className="max-w-[70%] text-base"
                   style={{
                     color: '#2b2a26',
                     fontFamily: "'Georgia', 'Noto Serif KR', serif",
-                    lineHeight: 1.6,
+                    lineHeight: 1.7,
                   }}
                 >
                   <ReactMarkdown
                     components={{
                       h1: ({ children }) => (
-                        <h1 className="mb-2 mt-3 text-base font-bold first:mt-0">{children}</h1>
+                        <h1 className="mb-2 mt-3 text-lg font-bold first:mt-0">{children}</h1>
                       ),
                       h2: ({ children }) => (
-                        <h2 className="mb-2 mt-3 text-[15px] font-bold first:mt-0">{children}</h2>
+                        <h2 className="mb-2 mt-3 text-base font-bold first:mt-0">{children}</h2>
                       ),
                       ul: ({ children }) => (
                         <ul className="my-1 list-disc pl-5">{children}</ul>
@@ -131,7 +147,7 @@ export default function ChatPage() {
           {loading && (
             <div className="flex justify-start">
               <p
-                className="text-sm"
+                className="text-base"
                 style={{
                   color: '#2b2a26',
                   fontFamily: "'Georgia', 'Noto Serif KR', serif",
@@ -145,9 +161,9 @@ export default function ChatPage() {
           <div ref={messagesEndRef} />
         </main>
 
-        <footer className="shrink-0 px-4 py-4">
+        <footer className="shrink-0 px-8 py-6">
           <div
-            className="flex items-center gap-2 rounded-[10px] border bg-white px-3 py-2"
+            className="mx-auto flex max-w-[720px] items-center gap-2 rounded-[10px] border bg-white px-4 py-3"
             style={{ borderColor: '#e8e4d9' }}
           >
             <input
@@ -156,19 +172,19 @@ export default function ChatPage() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="메시지를 입력하세요"
-              className="flex-1 bg-transparent text-sm outline-none"
+              className="flex-1 bg-transparent text-base outline-none"
               style={{ color: '#2b2a26' }}
             />
             <button
               onClick={sendMessage}
               disabled={loading}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px]"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]"
               style={{ backgroundColor: '#d97757' }}
               aria-label="전송"
             >
               <svg
-                width="16"
-                height="16"
+                width="18"
+                height="18"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="white"
@@ -183,6 +199,37 @@ export default function ChatPage() {
           </div>
         </footer>
       </div>
+
+      <aside
+        className="shrink-0 overflow-hidden border-l bg-white"
+        style={{
+          borderColor: '#e8e4d9',
+          width: panelOpen ? '300px' : '0px',
+          transition: 'width 300ms ease',
+        }}
+      >
+        <div className="flex h-full flex-col" style={{ width: '300px' }}>
+          <div
+            className="flex shrink-0 items-center justify-between border-b px-4 py-4"
+            style={{ borderColor: '#e8e4d9' }}
+          >
+            <h2 className="text-sm font-medium" style={{ color: '#2b2a26' }}>
+              예약 목록
+            </h2>
+            <button
+              onClick={() => setPanelOpen(false)}
+              className="flex h-7 w-7 items-center justify-center rounded-[8px] transition-colors hover:bg-black/5"
+              aria-label="닫기"
+            >
+              <IconX size={16} color="#2b2a26" stroke={1.75} />
+            </button>
+          </div>
+
+          <div className="overflow-y-auto px-4 py-4" style={{ flex: 1 }}>
+            <CalendarPanel refreshTrigger={refreshTrigger} />
+          </div>
+        </div>
+      </aside>
     </div>
   );
 }

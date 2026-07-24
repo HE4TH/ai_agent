@@ -1,7 +1,14 @@
 import type OpenAI from 'openai';
+import { Langfuse } from 'langfuse';
 import { callClaudeWithTools } from '@/lib/llm/client';
 import { tools } from '@/lib/llm/tools';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+
+const langfuse = new Langfuse({
+  publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+  secretKey: process.env.LANGFUSE_SECRET_KEY,
+  baseUrl: process.env.LANGFUSE_BASEURL,
+});
 
 async function findResource(resourceName: string, select: string): Promise<any> {
   const normalized = resourceName.replace(/\s+/g, '');
@@ -123,8 +130,6 @@ async function executeTool(
   toolCall: OpenAI.Chat.ChatCompletionMessageFunctionToolCall,
   userId: string
 ) {
-  console.log('도구 호출됨:', toolCall.function.name, toolCall.function.arguments);
-
   const args = JSON.parse(toolCall.function.arguments);
 
   switch (toolCall.function.name) {
@@ -157,21 +162,13 @@ export async function runAgent(
   const { data: resourceRows } = await supabaseAdmin.from('resources').select('name');
   const resourceNames = (resourceRows ?? []).map((row) => row.name).join(', ');
 
+  const systemPrompt = await langfuse.getPrompt('reservation-system-prompt');
+  const compiledSystemPrompt = systemPrompt.compile({ today, resourceNames });
+
   const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     {
       role: 'system',
-      content: `오늘은 ${today}입니다. 사용자가 내일, 모레 같은 상대적 날짜를 말하면 이 기준으로 정확히 계산해서 YYYY-MM-DD 형식으로 checkAvailability, createReservation 함수를 호출해주세요.
-
-현재 등록된 자원 목록: ${resourceNames}
-사용자가 자원을 어떤 이름이나 표현으로 말하든, 위 목록을 참고해서 가장 일치하는 정확한 자원명으로 함수를 호출하세요.
-
-다음 규칙을 반드시 따르세요:
-- 수용 인원, 위치, 자원 종류 등 자원 자체의 정보를 묻는 질문에는 반드시 getResourceInfo를 호출하세요. checkAvailability로 대체하지 마세요.
-- checkAvailability는 오직 특정 날짜/시간대의 예약 가능 여부를 확인할 때만 사용하세요.
-- 절대로 함수 호출 결과 없이 추측으로 답변하지 마세요. 자원 정보나 예약 현황에 대해 확실하지 않다면 반드시 해당 함수를 먼저 호출한 뒤 답변하세요.
-- 사용자가 요청한 시작/종료 시간이 30분 단위(00분 또는 30분)가 아니라면, 다른 정보(인원 수 등)를 묻기 전에 즉시 이 사실을 알리고 올바른 시간을 다시 요청하세요. 잘못된 시간 형식으로 대화를 계속 진행하지 마세요.
-- 현재 시스템은 예약 가능 여부 확인, 예약 생성, 자원 정보 조회, 전체 이번 주 통계 조회만 지원합니다. 개인별 예약 목록 조회, 예약 취소, 예약 변경 기능은 아직 지원하지 않습니다. 사용자가 이런 미지원 기능을 요청하면, 있는 것처럼 지어내지 말고 솔직하게 아직 지원하지 않는다고 답변하세요.
-- 사용자가 예약 요청 시 인원수를 언급했다면, 다른 정보(날짜, 시간 등)를 묻기 전에 먼저 getResourceInfo로 해당 자원의 수용 인원을 확인하고, 초과할 경우 즉시 알리고 다른 정보는 묻지 마세요.`,
+      content: compiledSystemPrompt,
     },
     ...history,
   ];
@@ -179,7 +176,8 @@ export async function runAgent(
   const message = await callClaudeWithTools(
     messages,
     tools as OpenAI.Chat.ChatCompletionTool[],
-    'anthropic/claude-haiku-4.5'
+    'anthropic/claude-haiku-4.5',
+    systemPrompt
   );
 
   if (!message.tool_calls || message.tool_calls.length === 0) {
@@ -208,7 +206,8 @@ export async function runAgent(
   const finalMessage = await callClaudeWithTools(
     messages,
     tools as OpenAI.Chat.ChatCompletionTool[],
-    'anthropic/claude-haiku-4.5'
+    'anthropic/claude-haiku-4.5',
+    systemPrompt
   );
 
   return finalMessage.content;

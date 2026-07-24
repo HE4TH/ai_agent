@@ -1,9 +1,16 @@
 import OpenAI, { APIError } from 'openai';
+import { Langfuse, type LangfusePromptClient } from 'langfuse';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
 export const client = new OpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
   apiKey: process.env.OPENROUTER_API_KEY,
+});
+
+export const langfuse = new Langfuse({
+  publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+  secretKey: process.env.LANGFUSE_SECRET_KEY,
+  baseUrl: process.env.LANGFUSE_BASEURL,
 });
 
 const MAX_RETRIES = 3;
@@ -111,11 +118,26 @@ export async function logLLMCall(
   }
 }
 
-export async function callClaude(prompt: string, model: string = DEFAULT_MODEL) {
+export async function callClaude(
+  prompt: string,
+  model: string = DEFAULT_MODEL,
+  langfusePrompt?: LangfusePromptClient
+) {
   const cached = cache.get(prompt);
   if (cached && cached.expiresAt > Date.now()) {
     return cached.value;
   }
+
+  const trace = langfuse.trace({ name: 'chat' });
+  const inputMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    { role: 'user', content: prompt },
+  ];
+  const generation = trace.generation({
+    name: 'callClaude',
+    model,
+    input: inputMessages,
+    prompt: langfusePrompt,
+  });
 
   const startedAt = Date.now();
 
@@ -124,22 +146,24 @@ export async function callClaude(prompt: string, model: string = DEFAULT_MODEL) 
       client.chat.completions.create(
         {
           model,
-          messages: [{ role: 'user', content: prompt }],
+          messages: inputMessages,
         },
         { signal }
       )
     )
   );
 
-  await logLLMCall(
-    'chat',
-    model,
-    response.usage?.prompt_tokens ?? 0,
-    response.usage?.completion_tokens ?? 0,
-    Date.now() - startedAt
-  );
-
+  const inputTokens = response.usage?.prompt_tokens ?? 0;
+  const outputTokens = response.usage?.completion_tokens ?? 0;
   const result = response.choices[0].message.content;
+
+  generation.end({
+    output: result,
+    usage: { input: inputTokens, output: outputTokens },
+  });
+
+  await logLLMCall('chat', model, inputTokens, outputTokens, Date.now() - startedAt);
+
   cache.set(prompt, { value: result, expiresAt: Date.now() + CACHE_TTL_MS });
 
   return result;
@@ -148,8 +172,17 @@ export async function callClaude(prompt: string, model: string = DEFAULT_MODEL) 
 export async function callClaudeWithTools(
   messages: OpenAI.Chat.ChatCompletionMessageParam[],
   tools: OpenAI.Chat.ChatCompletionTool[],
-  model: string = DEFAULT_MODEL
+  model: string = DEFAULT_MODEL,
+  langfusePrompt?: LangfusePromptClient
 ) {
+  const trace = langfuse.trace({ name: 'agent' });
+  const generation = trace.generation({
+    name: 'callClaudeWithTools',
+    model,
+    input: messages,
+    prompt: langfusePrompt,
+  });
+
   const startedAt = Date.now();
 
   const response = await withRetry(() =>
@@ -165,13 +198,16 @@ export async function callClaudeWithTools(
     )
   );
 
-  await logLLMCall(
-    'agent',
-    model,
-    response.usage?.prompt_tokens ?? 0,
-    response.usage?.completion_tokens ?? 0,
-    Date.now() - startedAt
-  );
+  const inputTokens = response.usage?.prompt_tokens ?? 0;
+  const outputTokens = response.usage?.completion_tokens ?? 0;
+  const resultMessage = response.choices[0].message;
 
-  return response.choices[0].message;
+  generation.end({
+    output: resultMessage,
+    usage: { input: inputTokens, output: outputTokens },
+  });
+
+  await logLLMCall('agent', model, inputTokens, outputTokens, Date.now() - startedAt);
+
+  return resultMessage;
 }

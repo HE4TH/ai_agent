@@ -1,6 +1,13 @@
 import type OpenAI from 'openai';
+import { Langfuse } from 'langfuse';
 import { searchDocuments } from '@/lib/rag/search';
 import { callClaude } from '@/lib/llm/client';
+
+const langfuse = new Langfuse({
+  publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+  secretKey: process.env.LANGFUSE_SECRET_KEY,
+  baseUrl: process.env.LANGFUSE_BASEURL,
+});
 
 function getMessageText(message: OpenAI.Chat.ChatCompletionMessageParam): string {
   return typeof message.content === 'string' ? message.content : '';
@@ -17,7 +24,8 @@ export async function answerWithRAG(messages: OpenAI.Chat.ChatCompletionMessageP
     .map((message) => `${message.role}: ${getMessageText(message)}`)
     .join('\n');
 
-  const prompt = `다음 규정을 참고해서 대화 맥락에 맞게 질문에 답해줘: ${context}\n\n대화 기록:\n${history}`;
+  const promptClient = await langfuse.getPrompt('rag-answer-prompt');
+  const prompt = promptClient.compile({ context, history });
 
-  return callClaude(prompt, 'anthropic/claude-sonnet-5');
+  return callClaude(prompt, 'anthropic/claude-sonnet-5', promptClient);
 }
