@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { auth } from '@/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,12 +30,19 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
-  const { resource_id, user_id, start_time, end_time } = body;
+  const session = await auth();
 
-  if (!resource_id || !user_id || !start_time || !end_time) {
+  if (!session?.user) {
+    return NextResponse.json({ error: '로그인이 필요합니다' }, { status: 401 });
+  }
+
+  const body = await request.json();
+  const { resource_id, start_time, end_time } = body;
+  const user_id = session.user.id;
+
+  if (!resource_id || !start_time || !end_time) {
     return NextResponse.json(
-      { error: 'resource_id, user_id, start_time, end_time은 필수입니다' },
+      { error: 'resource_id, start_time, end_time은 필수입니다' },
       { status: 400 }
     );
   }
