@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     return Response.json({ error: 'q 쿼리 파라미터가 필요합니다' }, { status: 400 });
   }
 
-  const category = await classifyRequest(q);
+  const category = await classifyRequest([{ role: 'user', content: q }]);
 
   return Response.json({ message: q, category });
 }

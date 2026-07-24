@@ -52,8 +52,29 @@ export const tools = [
             type: 'string',
             description: '종료 시간 (HH:MM)',
           },
+          attendee_count: {
+            type: 'integer',
+            description: '예약 이용 인원 수',
+          },
         },
-        required: ['resource_name', 'date', 'start_time', 'end_time'],
+        required: ['resource_name', 'date', 'start_time', 'end_time', 'attendee_count'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'getResourceInfo',
+      description: '특정 자원(회의실 등)의 상세 정보(수용 인원, 위치, 종류)를 조회',
+      parameters: {
+        type: 'object',
+        properties: {
+          resource_name: {
+            type: 'string',
+            description: '자원 이름',
+          },
+        },
+        required: ['resource_name'],
       },
     },
   },

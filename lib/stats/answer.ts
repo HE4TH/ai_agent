@@ -14,8 +14,11 @@ export async function answerStats(): Promise<string> {
 
   const totalCount = data.length;
 
+  const disclaimer =
+    '(참고: 현재는 전체 예약 통계만 제공하며, 개인별 예약 목록 조회는 지원하지 않습니다.)';
+
   if (totalCount === 0) {
-    return '이번 주에는 생성된 예약이 없습니다.';
+    return `이번 주에는 생성된 예약이 없습니다. ${disclaimer}`;
   }
 
   const countByResource = new Map<string, { name: string; count: number }>();
@@ -35,5 +38,5 @@ export async function answerStats(): Promise<string> {
 
   const topResource = [...countByResource.values()].sort((a, b) => b.count - a.count)[0];
 
-  return `이번 주(지난 7일) 동안 총 ${totalCount}건의 예약이 생성되었습니다. 가장 많이 예약된 자원은 '${topResource.name}'로, ${topResource.count}건 예약되었습니다.`;
+  return `이번 주(지난 7일) 동안 총 ${totalCount}건의 예약이 생성되었습니다. 가장 많이 예약된 자원은 '${topResource.name}'로, ${topResource.count}건 예약되었습니다. ${disclaimer}`;
 }
