@@ -22,6 +22,8 @@ create table if not exists resources (
   type text not null,           -- 예: 'room', 'equipment'
   capacity integer,
   location text,
+  opening_time text not null default '09:00',  -- HH:MM, 운영 시작 시각
+  closing_time text not null default '18:00',  -- HH:MM, 운영 종료 시각
   created_at timestamptz not null default now()
 );
 

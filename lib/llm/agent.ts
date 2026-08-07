@@ -26,16 +26,6 @@ async function findResource(resourceName: string, select: string): Promise<any> 
   return data[0];
 }
 
-async function getResourceId(resourceName: string): Promise<string> {
-  const resource = await findResource(resourceName, 'id');
-
-  if (!resource) {
-    throw new Error(`자원을 찾을 수 없습니다: ${resourceName}`);
-  }
-
-  return resource.id;
-}
-
 async function checkAvailability(args: {
   resource_name: string;
   date: string;
@@ -46,14 +36,26 @@ async function checkAvailability(args: {
     return { available: false, reason: '예약은 30분 단위로만 가능합니다' };
   }
 
-  const resourceId = await getResourceId(args.resource_name);
+  const resource = await findResource(args.resource_name, 'id, opening_time, closing_time');
+
+  if (!resource) {
+    throw new Error(`자원을 찾을 수 없습니다: ${args.resource_name}`);
+  }
+
+  if (!isWithinOperatingHours(args.start_time, args.end_time, resource.opening_time, resource.closing_time)) {
+    return {
+      available: false,
+      reason: `운영시간(${resource.opening_time}~${resource.closing_time}) 범위를 벗어났습니다`,
+    };
+  }
+
   const startTime = `${args.date}T${args.start_time}:00+09:00`;
   const endTime = `${args.date}T${args.end_time}:00+09:00`;
 
   const { data, error } = await supabaseAdmin
     .from('reservations')
     .select('id')
-    .eq('resource_id', resourceId)
+    .eq('resource_id', resource.id)
     .eq('status', 'confirmed')
     .lt('start_time', endTime)
     .gt('end_time', startTime);
@@ -68,6 +70,15 @@ async function checkAvailability(args: {
 function isOnHalfHourBoundary(time: string): boolean {
   const minute = Number(time.split(':')[1]);
   return minute === 0 || minute === 30;
+}
+
+function isWithinOperatingHours(
+  startTime: string,
+  endTime: string,
+  openingTime: string,
+  closingTime: string
+): boolean {
+  return startTime >= openingTime && endTime <= closingTime;
 }
 
 async function checkRuleViolation(args: {
@@ -120,10 +131,16 @@ async function createReservation(
     throw new Error('예약은 30분 단위로만 가능합니다');
   }
 
-  const resource = await findResource(args.resource_name, 'id, capacity');
+  const resource = await findResource(args.resource_name, 'id, capacity, opening_time, closing_time');
 
   if (!resource) {
     throw new Error(`자원을 찾을 수 없습니다: ${args.resource_name}`);
+  }
+
+  if (!isWithinOperatingHours(args.start_time, args.end_time, resource.opening_time, resource.closing_time)) {
+    throw new Error(
+      `${args.resource_name}의 운영시간은 ${resource.opening_time}~${resource.closing_time}입니다. 해당 범위 내로 다시 요청해주세요.`
+    );
   }
 
   if (resource.capacity !== null && args.attendee_count > resource.capacity) {
@@ -156,7 +173,10 @@ async function createReservation(
 }
 
 async function getResourceInfo(args: { resource_name: string }) {
-  const resource = await findResource(args.resource_name, 'name, type, capacity, location');
+  const resource = await findResource(
+    args.resource_name,
+    'name, type, capacity, location, opening_time, closing_time'
+  );
 
   if (!resource) {
     throw new Error(`자원을 찾을 수 없습니다: ${args.resource_name}`);
