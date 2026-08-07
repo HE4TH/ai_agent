@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { IconCalendar, IconLogout, IconX } from '@tabler/icons-react';
+import { IconCalendar, IconLogout, IconMessageCircle, IconX, type Icon } from '@tabler/icons-react';
+import * as TablerIcons from '@tabler/icons-react';
 import { signOut } from 'next-auth/react';
 import CalendarPanel from '@/components/CalendarPanel';
 
@@ -10,6 +11,27 @@ type Message = {
   role: 'user' | 'assistant';
   content: string;
 };
+
+type SuggestedQuestion = {
+  text: string;
+  icon: string;
+  category: string;
+};
+
+function toIconComponentName(iconName: string): string {
+  const withoutPrefix = iconName.replace(/^Icon/, '');
+  const pascalCase = withoutPrefix
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
+  return `Icon${pascalCase}`;
+}
+
+function getIconComponent(iconName: string): Icon {
+  const icons = TablerIcons as unknown as Record<string, Icon>;
+  return icons[toIconComponentName(iconName)] ?? IconMessageCircle;
+}
 
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -20,12 +42,25 @@ export default function ChatPage() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
+  const [suggestedQuestions, setSuggestedQuestions] = useState<SuggestedQuestion[]>([]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, loading]);
 
-  const sendMessage = async () => {
-    const message = input.trim();
+  useEffect(() => {
+    fetch('/api/suggested-questions')
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          setSuggestedQuestions(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const sendMessage = async (overrideText?: string) => {
+    const message = (overrideText ?? input).trim();
     if (!message || loading) return;
 
     const nextMessages: Message[] = [...messages, { role: 'user', content: message }];
@@ -105,6 +140,25 @@ export default function ChatPage() {
           className="flex flex-col gap-6 px-8 py-8"
           style={{ flex: 1, overflowY: 'auto' }}
         >
+          {messages.length === 0 && suggestedQuestions.length > 0 && (
+            <div className="mx-auto grid w-full max-w-[560px] grid-cols-1 gap-2 sm:grid-cols-2">
+              {suggestedQuestions.map((question, index) => {
+                const QuestionIcon = getIconComponent(question.icon);
+                return (
+                  <button
+                    key={index}
+                    onClick={() => sendMessage(question.text)}
+                    className="flex items-center gap-3 rounded-[10px] border bg-white px-4 py-3 text-left text-sm transition-colors hover:bg-black/5"
+                    style={{ borderColor: '#e8e4d9', color: '#2b2a26' }}
+                  >
+                    <QuestionIcon size={18} color="#d97757" stroke={1.75} />
+                    {question.text}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {messages.map((message, index) =>
             message.role === 'user' ? (
               <div key={index} className="flex justify-end">
@@ -186,7 +240,7 @@ export default function ChatPage() {
               style={{ color: '#2b2a26' }}
             />
             <button
-              onClick={sendMessage}
+              onClick={() => sendMessage()}
               disabled={loading}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]"
               style={{ backgroundColor: '#d97757' }}

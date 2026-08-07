@@ -92,6 +92,15 @@ as $$
   limit match_count;
 $$;
 
+-- 채팅 화면에 노출할 추천 질문 (예시 프롬프트)
+create table if not exists suggested_questions (
+  id uuid primary key default gen_random_uuid(),
+  text text not null,
+  icon text not null,          -- Tabler 아이콘 이름 (예: 'IconCalendar')
+  category text not null check (category in ('chitchat', 'faq', 'reservation', 'stats')),
+  created_at timestamptz not null default now()
+);
+
 -- LLM 호출 로그 (요청 종류별 토큰 사용량, 응답 시간 기록)
 create table if not exists llm_logs (
   id uuid primary key default gen_random_uuid(),
