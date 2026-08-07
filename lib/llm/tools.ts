@@ -95,4 +95,62 @@ export const tools = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'cancelReservation',
+      description: '본인이 생성한 예약을 취소',
+      parameters: {
+        type: 'object',
+        properties: {
+          reservation_id: {
+            type: 'string',
+            description: '예약 ID',
+          },
+        },
+        required: ['reservation_id'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'updateReservation',
+      description: '본인이 생성한 예약의 날짜/시간을 변경',
+      parameters: {
+        type: 'object',
+        properties: {
+          reservation_id: {
+            type: 'string',
+            description: '예약 ID',
+          },
+          new_date: {
+            type: 'string',
+            description: '변경할 날짜 (YYYY-MM-DD)',
+          },
+          new_start_time: {
+            type: 'string',
+            description: '변경할 시작 시간 (HH:MM)',
+          },
+          new_end_time: {
+            type: 'string',
+            description: '변경할 종료 시간 (HH:MM)',
+          },
+        },
+        required: ['reservation_id', 'new_date', 'new_start_time', 'new_end_time'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'listMyReservations',
+      description: '현재 로그인한 사용자 본인의 예약 목록 조회',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+    },
+  },
 ];

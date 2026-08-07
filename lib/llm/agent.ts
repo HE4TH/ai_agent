@@ -165,6 +165,120 @@ async function getResourceInfo(args: { resource_name: string }) {
   return resource;
 }
 
+async function getOwnedReservation(reservationId: string, userId: string) {
+  const { data: reservation, error } = await supabaseAdmin
+    .from('reservations')
+    .select('id, user_id, start_time, status')
+    .eq('id', reservationId)
+    .single();
+
+  if (error || !reservation) {
+    throw new Error('예약을 찾을 수 없습니다.');
+  }
+
+  if (reservation.user_id !== userId) {
+    throw new Error('본인이 생성한 예약만 취소/변경할 수 있습니다.');
+  }
+
+  return reservation;
+}
+
+async function cancelReservation(args: { reservation_id: string }, userId: string) {
+  const reservation = await getOwnedReservation(args.reservation_id, userId);
+
+  const oneHourFromNow = new Date(Date.now() + 60 * 60 * 1000);
+  if (new Date(reservation.start_time) < oneHourFromNow) {
+    throw new Error('이용 시작 1시간 전까지만 취소 가능합니다.');
+  }
+
+  const { error } = await supabaseAdmin
+    .from('reservations')
+    .update({ status: 'cancelled' })
+    .eq('id', args.reservation_id);
+
+  if (error) {
+    throw new Error(`예약 취소 실패: ${error.message}`);
+  }
+
+  return { success: true };
+}
+
+async function updateReservation(
+  args: {
+    reservation_id: string;
+    new_date: string;
+    new_start_time: string;
+    new_end_time: string;
+  },
+  userId: string
+) {
+  await getOwnedReservation(args.reservation_id, userId);
+
+  if (!isOnHalfHourBoundary(args.new_start_time) || !isOnHalfHourBoundary(args.new_end_time)) {
+    throw new Error('예약은 30분 단위로만 가능합니다');
+  }
+
+  const startTime = `${args.new_date}T${args.new_start_time}:00+09:00`;
+  const endTime = `${args.new_date}T${args.new_end_time}:00+09:00`;
+
+  const { error } = await supabaseAdmin
+    .from('reservations')
+    .update({ start_time: startTime, end_time: endTime })
+    .eq('id', args.reservation_id);
+
+  if (error) {
+    if (error.code === '23P01') {
+      throw new Error('해당 시간대는 이미 예약되어 있습니다.');
+    }
+    throw new Error(`예약 변경 실패: ${error.message}`);
+  }
+
+  return { success: true };
+}
+
+function formatTimeInKST(isoString: string): { date: string; time: string } {
+  const d = new Date(isoString);
+  const date = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
+  const time = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Seoul',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(d);
+  return { date, time };
+}
+
+async function listMyReservations(userId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('reservations')
+    .select('id, start_time, end_time, status, resources(name)')
+    .eq('user_id', userId)
+    .eq('status', 'confirmed')
+    .order('start_time', { ascending: true });
+
+  if (error) {
+    throw new Error(`예약 목록 조회 실패: ${error.message}`);
+  }
+
+  return data.map((reservation) => {
+    const start = formatTimeInKST(reservation.start_time);
+    const end = formatTimeInKST(reservation.end_time);
+    return {
+      reservation_id: reservation.id,
+      resource_name:
+        (reservation.resources as unknown as { name: string } | null)?.name ?? '알 수 없는 자원',
+      date: start.date,
+      start_time: start.time,
+      end_time: end.time,
+    };
+  });
+}
+
 async function executeTool(
   toolCall: OpenAI.Chat.ChatCompletionMessageFunctionToolCall,
   userId: string
@@ -180,6 +294,12 @@ async function executeTool(
       return getResourceInfo(args);
     case 'searchDocuments':
       return searchDocuments(args.query);
+    case 'cancelReservation':
+      return cancelReservation(args, userId);
+    case 'updateReservation':
+      return updateReservation(args, userId);
+    case 'listMyReservations':
+      return listMyReservations(userId);
     default:
       throw new Error(`알 수 없는 도구: ${toolCall.function.name}`);
   }
@@ -214,36 +334,41 @@ export async function runAgent(
     ...history,
   ];
 
-  const message = await callClaudeWithTools(
-    messages,
-    tools as OpenAI.Chat.ChatCompletionTool[],
-    'anthropic/claude-haiku-4.5',
-    systemPrompt
-  );
+  const MAX_TOOL_ROUNDS = 5;
 
-  if (!message.tool_calls || message.tool_calls.length === 0) {
-    return message.content;
-  }
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const message = await callClaudeWithTools(
+      messages,
+      tools as OpenAI.Chat.ChatCompletionTool[],
+      'anthropic/claude-haiku-4.5',
+      systemPrompt
+    );
 
-  messages.push(message);
-
-  for (const toolCall of message.tool_calls) {
-    if (toolCall.type !== 'function') continue;
-
-    let result: unknown;
-    try {
-      result = await executeTool(toolCall, userId);
-    } catch (error) {
-      result = { error: error instanceof Error ? error.message : '알 수 없는 에러' };
+    if (!message.tool_calls || message.tool_calls.length === 0) {
+      return message.content;
     }
 
-    messages.push({
-      role: 'tool',
-      tool_call_id: toolCall.id,
-      content: JSON.stringify(result),
-    });
+    messages.push(message);
+
+    for (const toolCall of message.tool_calls) {
+      if (toolCall.type !== 'function') continue;
+
+      let result: unknown;
+      try {
+        result = await executeTool(toolCall, userId);
+      } catch (error) {
+        result = { error: error instanceof Error ? error.message : '알 수 없는 에러' };
+      }
+
+      messages.push({
+        role: 'tool',
+        tool_call_id: toolCall.id,
+        content: JSON.stringify(result),
+      });
+    }
   }
 
+  // 최대 라운드를 넘겨도 계속 도구를 호출하려 하면, 더 이상 도구 실행 없이 마지막 텍스트 응답만 받아온다.
   const finalMessage = await callClaudeWithTools(
     messages,
     tools as OpenAI.Chat.ChatCompletionTool[],

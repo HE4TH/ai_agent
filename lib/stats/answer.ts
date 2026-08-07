@@ -15,7 +15,7 @@ export async function answerStats(): Promise<string> {
   const totalCount = data.length;
 
   const disclaimer =
-    '(참고: 현재는 전체 예약 통계만 제공하며, 개인별 예약 목록 조회는 지원하지 않습니다.)';
+    '(참고: 이 통계는 전체 사용자 기준입니다. 본인 예약 목록은 "내 예약 보여줘"처럼 요청해주세요.)';
 
   if (totalCount === 0) {
     return `이번 주에는 생성된 예약이 없습니다. ${disclaimer}`;
