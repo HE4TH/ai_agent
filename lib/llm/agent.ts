@@ -1,8 +1,9 @@
 import type OpenAI from 'openai';
 import { Langfuse } from 'langfuse';
-import { callClaudeWithTools } from '@/lib/llm/client';
+import { callClaude, callClaudeWithTools } from '@/lib/llm/client';
 import { tools } from '@/lib/llm/tools';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { searchDocuments } from '@/lib/rag/search';
 
 const langfuse = new Langfuse({
   publicKey: process.env.LANGFUSE_PUBLIC_KEY,
@@ -69,6 +70,42 @@ function isOnHalfHourBoundary(time: string): boolean {
   return minute === 0 || minute === 30;
 }
 
+async function checkRuleViolation(args: {
+  resource_name: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  attendee_count: number;
+}): Promise<void> {
+  const chunks = await searchDocuments('예약 규정 위반 확인');
+
+  if (chunks.length === 0) {
+    return;
+  }
+
+  const context = chunks.join('\n\n');
+  const prompt = `다음은 예약 규정 문서에서 검색된 내용입니다.
+
+${context}
+
+아래 예약 요청이 위 규정을 위반하는지 확인하세요.
+- 자원: ${args.resource_name}
+- 날짜: ${args.date}
+- 시간: ${args.start_time} ~ ${args.end_time}
+- 인원: ${args.attendee_count}명
+
+위반 사항이 없으면 "OK"라고만 답하세요.
+위반 사항이 있으면 "VIOLATION: <위반 사유>" 형식으로만 답하세요.`;
+
+  const response = await callClaude(prompt, 'anthropic/claude-haiku-4.5');
+  const normalized = response?.trim() ?? '';
+
+  if (normalized.toUpperCase().startsWith('VIOLATION')) {
+    const reason = normalized.replace(/^VIOLATION:?\s*/i, '').trim();
+    throw new Error(reason || '예약 규정에 위배됩니다.');
+  }
+}
+
 async function createReservation(
   args: {
     resource_name: string;
@@ -94,6 +131,8 @@ async function createReservation(
       `${args.resource_name}의 최대 수용 인원은 ${resource.capacity}명입니다. 인원을 줄이거나 다른 자원을 이용해주세요.`
     );
   }
+
+  await checkRuleViolation(args);
 
   const startTime = `${args.date}T${args.start_time}:00+09:00`;
   const endTime = `${args.date}T${args.end_time}:00+09:00`;
