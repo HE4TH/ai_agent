@@ -178,6 +178,8 @@ async function executeTool(
       return createReservation(args, userId);
     case 'getResourceInfo':
       return getResourceInfo(args);
+    case 'searchDocuments':
+      return searchDocuments(args.query);
     default:
       throw new Error(`알 수 없는 도구: ${toolCall.function.name}`);
   }

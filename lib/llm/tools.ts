@@ -78,4 +78,21 @@ export const tools = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'searchDocuments',
+      description: '예약 규정 문서에서 운영시간 등 관련 규정 내용을 검색',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: '검색할 규정 관련 질의 (예: "회의실B 운영시간")',
+          },
+        },
+        required: ['query'],
+      },
+    },
+  },
 ];
