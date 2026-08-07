@@ -49,17 +49,22 @@ export async function withTimeout<T>(
   timeoutMs: number = TIMEOUT_MS
 ): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  let timer: ReturnType<typeof setTimeout>;
+
+  // AbortSignal 만으로는 하드 타임아웃을 보장할 수 없다 (기반 fetch/SDK가 signal을
+  // 무시하고 응답을 계속 기다리는 경우가 있음). Promise.race로 이 함수 자체가
+  // timeoutMs 안에 반드시 반환/거부되도록 강제한다.
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new Error(TIMEOUT_MESSAGE));
+    }, timeoutMs);
+  });
 
   try {
-    return await fn(controller.signal);
-  } catch (error) {
-    if (controller.signal.aborted) {
-      throw new Error(TIMEOUT_MESSAGE);
-    }
-    throw error;
+    return await Promise.race([fn(controller.signal), timeoutPromise]);
   } finally {
-    clearTimeout(timer);
+    clearTimeout(timer!);
   }
 }
 
