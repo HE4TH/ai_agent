@@ -87,6 +87,9 @@ Langfuse — 프롬프트 버전 관리 및 트레이싱
 ### 7. AI 생성 추천 질문
 채팅을 처음 시작할 때 무엇을 물어볼 수 있는지 막막하지 않도록, 관리자용 엔드포인트(`/api/admin/generate-questions`)가 Claude에게 잡담·규정·예약·통계 4가지 유형이 섞인 예시 질문 20개를 생성시켜 DB에 저장해두고, 채팅 화면 진입 시 이를 추천 질문 칩으로 보여줍니다.
 
+### 8. 회의록 자동 요약 및 STT 방식 비교
+`/meeting-notes`에서 녹음을 종료하면 오디오를 OpenRouter whisper-1로 전사하고, Claude Sonnet 5가 핵심 내용·결정 사항·액션 아이템을 정리해 요약합니다. 원문과 요약은 `meeting_notes`에 저장됩니다. 어떤 STT 방식을 채택할지 근거를 남기기 위해 `/stt-test`에서는 브라우저 내장 Web Speech API와 Whisper-1을 동시에 녹음·인식시켜 지연시간·정확도·비용을 나란히 비교하고, 정답 텍스트를 입력하면 단어 단위 Levenshtein distance 기반 정확도(`lib/stt/accuracy.ts`)를 계산해 `stt_comparison_logs`에 기록합니다. 이 실측 데이터를 근거로 Whisper-1을 채택한 과정은 [기술 선택 근거: STT 방식 정량적 비교 실험](#기술-선택-근거-stt-방식-정량적-비교-실험) 섹션에 정리했습니다.
+
 ---
 
 ## 실제로 발견하고 해결한 문제들
