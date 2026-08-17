@@ -113,3 +113,33 @@ create table if not exists llm_logs (
   latency_ms integer,
   created_at timestamptz not null default now()
 );
+
+-- 회의록 (음성 인식 원문 + 요약)
+create table if not exists meeting_notes (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references users(id),
+  raw_transcript text,
+  summary text,
+  created_at timestamptz not null default now()
+);
+
+-- STT 방식 비교 로그 (Web Speech API vs Whisper)
+create table if not exists stt_comparison_logs (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null,     -- 같은 발화를 두 방식으로 테스트한 것을 묶어주는 값
+  method text not null check (method in ('web_speech', 'whisper')),
+  transcript text,                       -- 인식된 텍스트
+  reference_transcript text,             -- 사람이 직접 확인한 정답 텍스트 (나중에 채워 넣음)
+  latency_ms integer,                    -- 확정 텍스트가 나오기까지 걸린 시간
+  audio_duration_seconds numeric,        -- 오디오 길이
+  cost_usd numeric,                      -- whisper만 값 있음, web_speech는 0
+  accuracy_percent numeric,              -- reference_transcript 대비 단어 단위 편집 거리 기반 정확도(%)
+  created_at timestamptz not null default now()
+);
+
+-- 기존에 테이블이 이미 존재하는 환경(supabase에 이전 스키마 적용됨)을 위한 안전장치
+alter table stt_comparison_logs
+  add column if not exists accuracy_percent numeric;
+
+create index if not exists idx_stt_comparison_logs_session
+  on stt_comparison_logs (session_id);
