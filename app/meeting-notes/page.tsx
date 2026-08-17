@@ -2,6 +2,8 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { IconArrowLeft } from '@tabler/icons-react';
 
 type MeetingNote = {
@@ -193,12 +195,50 @@ export default function MeetingNotesPage() {
               <span className="mb-2 block text-sm font-medium" style={{ color: '#2b2a26' }}>
                 요약
               </span>
-              <p
-                className="whitespace-pre-wrap text-sm"
+              <div
+                className="text-sm"
                 style={{ color: '#2b2a26', lineHeight: 1.7 }}
               >
-                {note.summary}
-              </p>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    h1: ({ children }) => (
+                      <h1 className="mb-2 mt-3 text-lg font-bold first:mt-0">{children}</h1>
+                    ),
+                    h2: ({ children }) => (
+                      <h2 className="mb-2 mt-3 text-base font-bold first:mt-0">{children}</h2>
+                    ),
+                    ul: ({ children }) => (
+                      <ul className="my-1 list-disc pl-5">{children}</ul>
+                    ),
+                    ol: ({ children }) => (
+                      <ol className="my-1 list-decimal pl-5">{children}</ol>
+                    ),
+                    li: ({ children }) => <li className="mb-1">{children}</li>,
+                    p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                    table: ({ children }) => (
+                      <div className="mb-2 overflow-x-auto">
+                        <table className="w-full border-collapse text-sm">{children}</table>
+                      </div>
+                    ),
+                    th: ({ children }) => (
+                      <th
+                        className="border px-2 py-1 text-left font-medium"
+                        style={{ borderColor: '#e8e4d9', backgroundColor: '#f7f3e9' }}
+                      >
+                        {children}
+                      </th>
+                    ),
+                    td: ({ children }) => (
+                      <td className="border px-2 py-1" style={{ borderColor: '#e8e4d9' }}>
+                        {children}
+                      </td>
+                    ),
+                  }}
+                >
+                  {note.summary}
+                </ReactMarkdown>
+              </div>
             </div>
 
             <div
