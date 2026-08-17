@@ -67,7 +67,7 @@ Langfuse — 프롬프트 버전 관리 및 트레이싱
 예약 규정 문서를 문단 단위로 청킹 → 임베딩 → `pgvector`(HNSW 인덱스, 코사인 거리)에 저장합니다. 사용자 질문이 들어오면 유사도 검색으로 관련 청크를 찾아 Claude Sonnet에게 근거로 제공한 뒤 답변을 생성합니다.
 
 ### 3. 함수 호출(Tool Use) 기반 자연어 예약
-`checkAvailability`, `createReservation`, `getResourceInfo` 세 가지 도구를 정의하여, Claude가 자연어 요청을 실제 DB 조회/생성 액션으로 변환하도록 구현했습니다. 예약 확정 전에는 반드시 사용자에게 날짜·시간·인원을 명시한 최종 확인을 받도록 설계했습니다.
+`checkAvailability`, `createReservation`, `getResourceInfo`, `cancelReservation`, `updateReservation`, `listMyReservations`, `searchDocuments` 도구를 정의하여, Claude가 자연어 요청을 실제 DB 조회/생성/취소/변경 액션으로 변환하도록 구현했습니다. 예약 확정 전에는 반드시 사용자에게 날짜·시간·인원을 명시한 최종 확인을 받도록 설계했으며, 취소·변경은 본인이 생성한 예약인지 서버에서 소유권을 검증하고 이용 시작 1시간 전까지만 취소를 허용하도록 제한했습니다.
 
 ### 4. 라우터 기반 모델 티어링
 모든 요청에 고성능 모델을 쓰는 대신, 요청 성격에 따라 모델을 분리했습니다.
@@ -82,7 +82,10 @@ Langfuse — 프롬프트 버전 관리 및 트레이싱
 프롬프트를 코드에 하드코딩하지 않고 Langfuse로 버전 관리하여, 코드 재배포 없이 프롬프트를 수정하고 즉시 반영되도록 구현했습니다. 각 LLM 호출을 트레이싱하여 어떤 프롬프트 버전이 어떤 응답을 만들었는지 추적할 수 있습니다.
 
 ### 6. 채팅+캘린더 통합 UI
-채팅과 캘린더를 한 화면에서 오갈 수 있도록 통합했습니다. 캘린더 아이콘으로 우측 패널을 슬라이드 토글하며, 채팅으로 예약이 생성되면 페이지 새로고침 없이 캘린더에 즉시 반영됩니다.
+채팅과 캘린더를 한 화면에서 오갈 수 있도록 통합했습니다. 캘린더 아이콘으로 우측 패널을 슬라이드 토글하며, 채팅으로 예약이 생성되면 페이지 새로고침 없이 캘린더에 즉시 반영됩니다. 별도의 `/reservations` 페이지에서도 자원별로 필터링한 전체 예약 목록을 확인할 수 있습니다.
+
+### 7. AI 생성 추천 질문
+채팅을 처음 시작할 때 무엇을 물어볼 수 있는지 막막하지 않도록, 관리자용 엔드포인트(`/api/admin/generate-questions`)가 Claude에게 잡담·규정·예약·통계 4가지 유형이 섞인 예시 질문 20개를 생성시켜 DB에 저장해두고, 채팅 화면 진입 시 이를 추천 질문 칩으로 보여줍니다.
 
 ---
 
@@ -143,20 +146,27 @@ app/
 ├── page.tsx              # 홈
 ├── login/, signup/       # 인증
 ├── chat/                 # 채팅 + 캘린더 통합 화면
+├── reservations/         # 독립 예약 목록 페이지
 └── api/
     ├── auth/              # NextAuth, 회원가입
     ├── reservations/      # 예약 CRUD
     ├── resources/         # 자원 조회
-    └── router-chat/       # 통합 채팅(라우팅 → RAG/에이전트/통계 분기)
+    ├── router-chat/       # 통합 채팅(라우팅 → RAG/에이전트/통계 분기)
+    ├── suggested-questions/ # 추천 질문 조회
+    └── admin/
+        ├── generate-questions/ # Claude로 추천 질문 생성
+        └── ingest/              # 규정 문서 청킹·임베딩 적재
+components/
+└── CalendarPanel.tsx      # 예약 캘린더 패널 (채팅 화면에 슬라이드 토글)
 lib/
 ├── llm/                   # LLM 게이트웨이, 라우터, 에이전트, 도구 정의
 ├── rag/                   # 문서 청킹, 검색, 답변 생성
 ├── stats/                 # 통계 집계
 ├── embeddings.ts          # 임베딩 생성
-├── supabase.ts / supabase-admin.ts
-└── auth.ts
+└── supabase.ts / supabase-admin.ts
+auth.ts                    # NextAuth 설정 (프로젝트 루트)
 supabase/
-└── schema.sql             # DB 스키마 (users, resources, reservations, document_chunks, llm_logs)
+└── schema.sql             # DB 스키마 (users, resources, reservations, document_chunks, suggested_questions, llm_logs)
 ```
 
 ---
@@ -179,6 +189,5 @@ Supabase SQL Editor에서 `supabase/schema.sql`을 실행해 테이블을 생성
 
 ## 한계와 다음 단계
 
-- 개인별 예약 목록 조회, 예약 취소/변경 기능은 아직 미구현이며, 현재는 AI가 이를 정직하게 안내하도록만 처리했습니다.
 - 통계(`stats`) 기능은 현재 전체 집계만 제공하며, 사용자별 개인화는 지원하지 않습니다.
 - 향후 확장 후보: 관리자 자동 리포트(스케줄러 + LLM 요약), 반복 예약 패턴 기반 선제 제안, 멀티 에이전트 구조로의 세분화.
