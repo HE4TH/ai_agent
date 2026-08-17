@@ -1,6 +1,8 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { IconArrowLeft } from '@tabler/icons-react';
 
 type MeetingNote = {
   id: string;
@@ -9,6 +11,7 @@ type MeetingNote = {
 };
 
 export default function MeetingNotesPage() {
+  const router = useRouter();
   const [isRecording, setIsRecording] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [note, setNote] = useState<MeetingNote | null>(null);
@@ -81,14 +84,25 @@ export default function MeetingNotesPage() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#f7f3e9' }}>
       <div className="mx-auto flex max-w-[720px] flex-col px-4 py-8">
-        <div className="mb-2 flex items-center gap-2">
-          <span
-            className="inline-block h-3 w-3 rounded-full"
-            style={{ backgroundColor: '#d97757' }}
-          />
-          <h1 className="text-lg font-medium" style={{ color: '#2b2a26' }}>
-            회의록 자동 요약
-          </h1>
+        <div className="mb-2 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span
+              className="inline-block h-3 w-3 rounded-full"
+              style={{ backgroundColor: '#d97757' }}
+            />
+            <h1 className="text-lg font-medium" style={{ color: '#2b2a26' }}>
+              회의록 자동 요약
+            </h1>
+          </div>
+
+          <button
+            onClick={() => router.push('/chat')}
+            className="flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors hover:bg-black/5"
+            aria-label="채팅으로 돌아가기"
+            title="채팅으로 돌아가기"
+          >
+            <IconArrowLeft size={22} color="#2b2a26" stroke={1.75} />
+          </button>
         </div>
         <p className="mb-6 text-sm" style={{ color: '#6b6a63' }}>
           녹음을 종료하면 음성을 텍스트로 변환하고 핵심 내용을 요약합니다
