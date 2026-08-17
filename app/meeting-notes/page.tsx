@@ -19,14 +19,15 @@ export default function MeetingNotesPage() {
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const submitRecording = async (blob: Blob) => {
+  const submitAudio = async (audio: Blob, filename: string) => {
     setProcessing(true);
     setErrorMessage(null);
 
     try {
       const formData = new FormData();
-      formData.append('audio', blob, 'recording.webm');
+      formData.append('audio', audio, filename);
 
       const res = await fetch('/api/meeting-notes', {
         method: 'POST',
@@ -44,6 +45,15 @@ export default function MeetingNotesPage() {
     } finally {
       setProcessing(false);
     }
+  };
+
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    setNote(null);
+    await submitAudio(file, file.name);
   };
 
   const startRecording = async () => {
@@ -64,7 +74,7 @@ export default function MeetingNotesPage() {
       mediaRecorder.onstop = async () => {
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         stream.getTracks().forEach((track) => track.stop());
-        await submitRecording(blob);
+        await submitAudio(blob, 'recording.webm');
       };
 
       mediaRecorderRef.current = mediaRecorder;
@@ -105,7 +115,7 @@ export default function MeetingNotesPage() {
           </button>
         </div>
         <p className="mb-6 text-sm" style={{ color: '#6b6a63' }}>
-          녹음을 종료하면 음성을 텍스트로 변환하고 핵심 내용을 요약합니다
+          녹음을 종료하거나 가지고 있는 녹음 파일을 업로드하면 음성을 텍스트로 변환하고 핵심 내용을 요약합니다
         </p>
 
         <div
@@ -130,6 +140,39 @@ export default function MeetingNotesPage() {
           >
             {isRecording ? '녹음 종료' : '녹음 시작'}
           </button>
+        </div>
+
+        <div className="mb-6 flex items-center gap-3">
+          <span className="h-px flex-1" style={{ backgroundColor: '#e8e4d9' }} />
+          <span className="text-xs" style={{ color: '#a6a296' }}>
+            또는
+          </span>
+          <span className="h-px flex-1" style={{ backgroundColor: '#e8e4d9' }} />
+        </div>
+
+        <div
+          className="mb-6 flex items-center justify-between rounded-[10px] border bg-white px-4 py-3"
+          style={{ borderColor: '#e8e4d9' }}
+        >
+          <span className="text-sm" style={{ color: '#2b2a26' }}>
+            가지고 있는 녹음 파일을 업로드해서 정리하기
+          </span>
+
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isRecording || processing}
+            className="rounded-[10px] border px-4 py-2 text-sm font-medium transition-opacity disabled:opacity-50"
+            style={{ borderColor: '#d97757', color: '#d97757' }}
+          >
+            파일 업로드
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="audio/*"
+            onChange={handleFileChange}
+            className="hidden"
+          />
         </div>
 
         {errorMessage && (
