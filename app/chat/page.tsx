@@ -1,8 +1,16 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
-import { IconCalendar, IconLogout, IconMessageCircle, IconX, type Icon } from '@tabler/icons-react';
+import {
+  IconCalendar,
+  IconLogout,
+  IconMessageCircle,
+  IconMicrophone,
+  IconX,
+  type Icon,
+} from '@tabler/icons-react';
 import * as TablerIcons from '@tabler/icons-react';
 import { signOut } from 'next-auth/react';
 import CalendarPanel from '@/components/CalendarPanel';
@@ -34,6 +42,7 @@ function getIconComponent(iconName: string): Icon {
 }
 
 export default function ChatPage() {
+  const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -125,6 +134,14 @@ export default function ChatPage() {
               aria-label="예약 목록 보기"
             >
               <IconCalendar size={22} color="#d97757" stroke={1.75} />
+            </button>
+            <button
+              onClick={() => router.push('/meeting-notes')}
+              className="flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors hover:bg-black/5"
+              aria-label="회의록 작성"
+              title="회의록 작성"
+            >
+              <IconMicrophone size={22} color="#d97757" stroke={1.75} />
             </button>
             <button
               onClick={() => signOut({ callbackUrl: '/login' })}
