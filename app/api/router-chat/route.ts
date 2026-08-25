@@ -1,6 +1,7 @@
 import type OpenAI from 'openai';
 import { auth } from '@/auth';
 import { classifyRequest } from '@/lib/llm/router';
+import { answerChitchat } from '@/lib/llm/chitchat';
 import { answerWithRAG } from '@/lib/rag/answer';
 import { runAgent } from '@/lib/llm/agent';
 import { answerStats } from '@/lib/stats/answer';
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
 
   switch (category) {
     case 'chitchat':
-      reply = '안녕하세요! 무엇을 도와드릴까요?';
+      reply = await answerChitchat(messages);
       break;
     case 'faq':
       reply = await answerWithRAG(messages);
