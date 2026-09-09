@@ -46,7 +46,7 @@ Next.js 프론트 — 채팅 UI + 캘린더 패널 (실시간 동기화)
 API Routes (Node.js)
    ↓
 라우터 (Claude Haiku) — 요청을 4가지로 분류
-   ├─ chitchat   → AI 호출 없이 즉답
+   ├─ chitchat   → Claude Haiku로 짧은 스몰토크 응답 생성
    ├─ faq        → RAG(pgvector 검색) + Claude Sonnet
    ├─ reservation→ 함수 호출(Tool Use) + Claude Haiku
    └─ stats      → SQL 집계 (AI 호출 없음)
@@ -73,6 +73,7 @@ Langfuse — 프롬프트 버전 관리 및 트레이싱
 모든 요청에 고성능 모델을 쓰는 대신, 요청 성격에 따라 모델을 분리했습니다.
 
 - **분류(라우팅)**: Claude Haiku 4.5 — 가볍고 빠른 판단
+- **잡담 응답**: Claude Haiku 4.5 — 짧고 자연스러운 스몰토크
 - **문서 기반 답변(RAG)**: Claude Sonnet 5 — 응답 품질이 중요한 작업
 - **예약 판단/함수 호출**: Claude Haiku 4.5 — 구조화된 판단 작업
 
@@ -171,26 +172,32 @@ app/
 ├── login/, signup/       # 인증
 ├── chat/                 # 채팅 + 캘린더 통합 화면
 ├── reservations/         # 독립 예약 목록 페이지
+├── meeting-notes/        # 회의록 녹음/업로드 및 요약 확인
+├── stt-test/             # STT 방식(Web Speech API vs Whisper-1) 비교 테스트
 └── api/
     ├── auth/              # NextAuth, 회원가입
     ├── reservations/      # 예약 CRUD
     ├── resources/         # 자원 조회
     ├── router-chat/       # 통합 채팅(라우팅 → RAG/에이전트/통계 분기)
     ├── suggested-questions/ # 추천 질문 조회
+    ├── meeting-notes/     # 오디오 전사(Whisper-1) 및 Claude 요약
+    ├── stt-test/          # STT 비교 테스트 기록(save)/Whisper-1 호출(whisper)
     └── admin/
-        ├── generate-questions/ # Claude로 추천 질문 생성
-        └── ingest/              # 규정 문서 청킹·임베딩 적재
+        ├── generate-questions/   # Claude로 추천 질문 생성
+        ├── ingest/                # 규정 문서 청킹·임베딩 적재
+        └── recalculate-accuracy/ # STT 비교 로그 정확도 재계산
 components/
 └── CalendarPanel.tsx      # 예약 캘린더 패널 (채팅 화면에 슬라이드 토글)
 lib/
-├── llm/                   # LLM 게이트웨이, 라우터, 에이전트, 도구 정의
+├── llm/                   # LLM 게이트웨이, 라우터, 에이전트, 잡담 응답, 도구 정의
 ├── rag/                   # 문서 청킹, 검색, 답변 생성
 ├── stats/                 # 통계 집계
+├── stt/                   # STT 정확도 계산(Levenshtein distance)
 ├── embeddings.ts          # 임베딩 생성
 └── supabase.ts / supabase-admin.ts
 auth.ts                    # NextAuth 설정 (프로젝트 루트)
 supabase/
-└── schema.sql             # DB 스키마 (users, resources, reservations, document_chunks, suggested_questions, llm_logs)
+└── schema.sql             # DB 스키마 (users, resources, reservations, document_chunks, suggested_questions, llm_logs, meeting_notes, stt_comparison_logs)
 ```
 
 ---
