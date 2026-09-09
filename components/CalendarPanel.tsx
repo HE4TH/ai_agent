@@ -173,9 +173,16 @@ export default function CalendarPanel({ refreshTrigger = 0 }: CalendarPanelProps
               onClick={() => setSelectedDate(isSelected ? null : cell.key)}
               className="flex flex-col items-center gap-0.5 rounded-[8px] py-1.5 text-xs transition-colors"
               style={{
-                backgroundColor: isSelected ? '#d97757' : hasReservations ? '#f0e6da' : 'transparent',
-                color: isSelected ? '#f7f3e9' : '#2b2a26',
+                backgroundColor: isSelected
+                  ? '#d97757'
+                  : isToday
+                    ? 'rgba(217, 119, 87, 0.16)'
+                    : hasReservations
+                      ? '#f0e6da'
+                      : 'transparent',
+                color: isSelected ? '#f7f3e9' : isToday ? '#d97757' : '#2b2a26',
                 fontWeight: isToday ? 700 : 400,
+                boxShadow: isToday && !isSelected ? 'inset 0 0 0 1.5px #d97757' : 'none',
               }}
             >
               <span>{cell.day}</span>

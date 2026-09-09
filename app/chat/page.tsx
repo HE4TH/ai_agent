@@ -4,11 +4,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ReactMarkdown from 'react-markdown';
 import {
-  IconCalendar,
   IconLogout,
   IconMessageCircle,
   IconMicrophone,
-  IconX,
   type Icon,
 } from '@tabler/icons-react';
 import * as TablerIcons from '@tabler/icons-react';
@@ -48,7 +46,6 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const [panelOpen, setPanelOpen] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   const [suggestedQuestions, setSuggestedQuestions] = useState<SuggestedQuestion[]>([]);
@@ -128,13 +125,6 @@ export default function ChatPage() {
           </div>
 
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => setPanelOpen((prev) => !prev)}
-              className="flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors hover:bg-black/5"
-              aria-label="예약 목록 보기"
-            >
-              <IconCalendar size={22} color="#d97757" stroke={1.75} />
-            </button>
             <button
               onClick={() => router.push('/meeting-notes')}
               className="flex h-9 w-9 items-center justify-center rounded-[10px] transition-colors hover:bg-black/5"
@@ -283,27 +273,16 @@ export default function ChatPage() {
 
       <aside
         className="shrink-0 overflow-hidden border-l bg-white"
-        style={{
-          borderColor: '#e8e4d9',
-          width: panelOpen ? '300px' : '0px',
-          transition: 'width 300ms ease',
-        }}
+        style={{ borderColor: '#e8e4d9', width: '300px' }}
       >
-        <div className="flex h-full flex-col" style={{ width: '300px' }}>
+        <div className="flex h-full flex-col">
           <div
-            className="flex shrink-0 items-center justify-between border-b px-4 py-4"
+            className="flex shrink-0 items-center border-b px-4 py-4"
             style={{ borderColor: '#e8e4d9' }}
           >
             <h2 className="text-sm font-medium" style={{ color: '#2b2a26' }}>
               예약 목록
             </h2>
-            <button
-              onClick={() => setPanelOpen(false)}
-              className="flex h-7 w-7 items-center justify-center rounded-[8px] transition-colors hover:bg-black/5"
-              aria-label="닫기"
-            >
-              <IconX size={16} color="#2b2a26" stroke={1.75} />
-            </button>
           </div>
 
           <div className="overflow-y-auto px-4 py-4" style={{ flex: 1 }}>
