@@ -1,17 +1,7 @@
 import type OpenAI from 'openai';
-import { Langfuse } from 'langfuse';
 import { searchDocuments } from '@/lib/rag/search';
-import { callClaude } from '@/lib/llm/client';
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-  secretKey: process.env.LANGFUSE_SECRET_KEY,
-  baseUrl: process.env.LANGFUSE_BASEURL,
-});
-
-function getMessageText(message: OpenAI.Chat.ChatCompletionMessageParam): string {
-  return typeof message.content === 'string' ? message.content : '';
-}
+import { callClaude, langfuse } from '@/lib/llm/client';
+import { getMessageText } from '@/lib/llm/messages';
 
 export async function answerWithRAG(messages: OpenAI.Chat.ChatCompletionMessageParam[]) {
   const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user');

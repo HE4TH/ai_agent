@@ -1,21 +1,11 @@
 import type OpenAI from 'openai';
-import { Langfuse } from 'langfuse';
-import { callClaude } from '@/lib/llm/client';
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-  secretKey: process.env.LANGFUSE_SECRET_KEY,
-  baseUrl: process.env.LANGFUSE_BASEURL,
-});
+import { callClaude, langfuse } from '@/lib/llm/client';
+import { getMessageText } from '@/lib/llm/messages';
 
 const CATEGORIES = ['chitchat', 'faq', 'reservation', 'stats'] as const;
 const RECENT_HISTORY_SIZE = 6;
 
 export type RequestCategory = (typeof CATEGORIES)[number];
-
-function getMessageText(message: OpenAI.Chat.ChatCompletionMessageParam): string {
-  return typeof message.content === 'string' ? message.content : '';
-}
 
 export async function classifyRequest(
   messages: OpenAI.Chat.ChatCompletionMessageParam[]

@@ -1,15 +1,8 @@
 import type OpenAI from 'openai';
-import { Langfuse } from 'langfuse';
-import { callClaude, callClaudeWithTools } from '@/lib/llm/client';
+import { callClaude, callClaudeWithTools, langfuse } from '@/lib/llm/client';
 import { tools } from '@/lib/llm/tools';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { searchDocuments } from '@/lib/rag/search';
-
-const langfuse = new Langfuse({
-  publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-  secretKey: process.env.LANGFUSE_SECRET_KEY,
-  baseUrl: process.env.LANGFUSE_BASEURL,
-});
 
 async function findResource(resourceName: string, select: string): Promise<any> {
   const normalized = resourceName.replace(/\s+/g, '');
@@ -34,6 +27,10 @@ async function checkAvailability(args: {
 }) {
   if (!isOnHalfHourBoundary(args.start_time) || !isOnHalfHourBoundary(args.end_time)) {
     return { available: false, reason: '예약은 30분 단위로만 가능합니다' };
+  }
+
+  if (!isWeekday(args.date)) {
+    return { available: false, reason: '예약은 평일(월~금)에만 가능합니다' };
   }
 
   const resource = await findResource(args.resource_name, 'id, opening_time, closing_time');
@@ -70,6 +67,11 @@ async function checkAvailability(args: {
 function isOnHalfHourBoundary(time: string): boolean {
   const minute = Number(time.split(':')[1]);
   return minute === 0 || minute === 30;
+}
+
+function isWeekday(dateString: string): boolean {
+  const day = new Date(`${dateString}T00:00:00Z`).getUTCDay();
+  return day !== 0 && day !== 6;
 }
 
 function isWithinOperatingHours(
@@ -129,6 +131,10 @@ async function createReservation(
 ) {
   if (!isOnHalfHourBoundary(args.start_time) || !isOnHalfHourBoundary(args.end_time)) {
     throw new Error('예약은 30분 단위로만 가능합니다');
+  }
+
+  if (!isWeekday(args.date)) {
+    throw new Error('예약은 평일(월~금)에만 가능합니다');
   }
 
   const resource = await findResource(args.resource_name, 'id, capacity, opening_time, closing_time');
