@@ -3,6 +3,7 @@ import { callClaude, callClaudeWithTools, langfuse } from '@/lib/llm/client';
 import { tools } from '@/lib/llm/tools';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { searchDocuments } from '@/lib/rag/search';
+import { isOnHalfHourBoundary, isWeekday, isWithinOperatingHours } from '@/lib/llm/validation';
 
 async function findResource(resourceName: string, select: string): Promise<any> {
   const normalized = resourceName.replace(/\s+/g, '');
@@ -62,25 +63,6 @@ async function checkAvailability(args: {
   }
 
   return { available: data.length === 0 };
-}
-
-function isOnHalfHourBoundary(time: string): boolean {
-  const minute = Number(time.split(':')[1]);
-  return minute === 0 || minute === 30;
-}
-
-function isWeekday(dateString: string): boolean {
-  const day = new Date(`${dateString}T00:00:00Z`).getUTCDay();
-  return day !== 0 && day !== 6;
-}
-
-function isWithinOperatingHours(
-  startTime: string,
-  endTime: string,
-  openingTime: string,
-  closingTime: string
-): boolean {
-  return startTime >= openingTime && endTime <= closingTime;
 }
 
 async function checkRuleViolation(args: {
