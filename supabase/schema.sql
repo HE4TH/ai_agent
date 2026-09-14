@@ -143,3 +143,10 @@ alter table stt_comparison_logs
 
 create index if not exists idx_stt_comparison_logs_session
   on stt_comparison_logs (session_id);
+
+-- 사용자별 채팅 요청 속도 제한 (고정 윈도우 카운터)
+create table if not exists rate_limits (
+  user_id uuid primary key references users(id) on delete cascade,
+  window_start timestamptz not null default now(),
+  request_count integer not null default 0
+);
