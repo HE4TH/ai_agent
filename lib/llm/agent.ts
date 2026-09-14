@@ -65,16 +65,45 @@ async function checkAvailability(args: {
   return { available: data.length === 0 };
 }
 
-async function checkRuleViolation(args: {
+type RuleViolationCheckArgs = {
   resource_name: string;
   date: string;
   start_time: string;
   end_time: string;
   attendee_count: number;
-}): Promise<void> {
+};
+
+// RAG 기반 규정 위반 판단은 하드코딩된 검증과 달리 오탐/미탐 가능성이 있어,
+// 나중에 실제 정확도를 확인하고 필요하면 하드코딩으로 승격시킬 근거를 남기기 위해 기록한다.
+async function logRuleViolationCheck(
+  args: RuleViolationCheckArgs,
+  verdict: 'ok' | 'violation',
+  reason: string | null
+) {
+  try {
+    const { error } = await supabaseAdmin.from('rule_violation_checks').insert({
+      resource_name: args.resource_name,
+      request_date: args.date,
+      start_time: args.start_time,
+      end_time: args.end_time,
+      attendee_count: args.attendee_count,
+      verdict,
+      reason,
+    });
+
+    if (error) {
+      console.error('규정 위반 판단 로그 기록 실패:', error);
+    }
+  } catch (error) {
+    console.error('규정 위반 판단 로그 기록 실패:', error);
+  }
+}
+
+async function checkRuleViolation(args: RuleViolationCheckArgs): Promise<void> {
   const chunks = await searchDocuments('예약 규정 위반 확인');
 
   if (chunks.length === 0) {
+    await logRuleViolationCheck(args, 'ok', '검색된 규정 없음');
     return;
   }
 
@@ -97,8 +126,11 @@ ${context}
 
   if (normalized.toUpperCase().startsWith('VIOLATION')) {
     const reason = normalized.replace(/^VIOLATION:?\s*/i, '').trim();
+    await logRuleViolationCheck(args, 'violation', reason || null);
     throw new Error(reason || '예약 규정에 위배됩니다.');
   }
+
+  await logRuleViolationCheck(args, 'ok', null);
 }
 
 async function createReservation(
@@ -176,7 +208,7 @@ async function getResourceInfo(args: { resource_name: string }) {
 async function getOwnedReservation(reservationId: string, userId: string) {
   const { data: reservation, error } = await supabaseAdmin
     .from('reservations')
-    .select('id, user_id, start_time, status')
+    .select('id, user_id, resource_id, start_time, status')
     .eq('id', reservationId)
     .single();
 
@@ -220,10 +252,30 @@ async function updateReservation(
   },
   userId: string
 ) {
-  await getOwnedReservation(args.reservation_id, userId);
+  const reservation = await getOwnedReservation(args.reservation_id, userId);
 
   if (!isOnHalfHourBoundary(args.new_start_time) || !isOnHalfHourBoundary(args.new_end_time)) {
     throw new Error('예약은 30분 단위로만 가능합니다');
+  }
+
+  if (!isWeekday(args.new_date)) {
+    throw new Error('예약은 평일(월~금)에만 가능합니다');
+  }
+
+  const { data: resource, error: resourceError } = await supabaseAdmin
+    .from('resources')
+    .select('opening_time, closing_time')
+    .eq('id', reservation.resource_id)
+    .single();
+
+  if (resourceError || !resource) {
+    throw new Error('자원 정보를 찾을 수 없습니다');
+  }
+
+  if (!isWithinOperatingHours(args.new_start_time, args.new_end_time, resource.opening_time, resource.closing_time)) {
+    throw new Error(
+      `운영시간은 ${resource.opening_time}~${resource.closing_time}입니다. 해당 범위 내로 다시 요청해주세요.`
+    );
   }
 
   const startTime = `${args.new_date}T${args.new_start_time}:00+09:00`;

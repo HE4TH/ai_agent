@@ -181,3 +181,18 @@ begin
   return v_count <= p_max_requests;
 end;
 $$;
+
+-- RAG 기반 규정 위반 판단(checkRuleViolation) 결과 기록
+-- 하드코딩된 검증과 달리 오탐/미탐 가능성이 있어, 실제 정확도를 확인하고
+-- 필요하면 특정 규정을 하드코딩으로 승격시킬 근거로 쓰기 위해 남긴다.
+create table if not exists rule_violation_checks (
+  id uuid primary key default gen_random_uuid(),
+  resource_name text not null,
+  request_date date not null,
+  start_time text not null,
+  end_time text not null,
+  attendee_count integer not null,
+  verdict text not null check (verdict in ('ok', 'violation')),
+  reason text,
+  created_at timestamptz not null default now()
+);
