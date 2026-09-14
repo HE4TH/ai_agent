@@ -34,7 +34,7 @@ create table if not exists reservations (
   user_id uuid not null references users(id) on delete cascade,
   start_time timestamptz not null,
   end_time timestamptz not null,
-  status text not null default 'confirmed' check (status in ('confirmed', 'cancelled')),
+  status text not null default 'confirmed' check (status in ('confirmed', 'cancelled', 'no_show')),
   created_at timestamptz not null default now(),
 
   constraint reservations_time_valid check (end_time > start_time),
@@ -181,6 +181,11 @@ begin
   return v_count <= p_max_requests;
 end;
 $$;
+
+-- 노쇼 상태 추가 (기존에 이미 배포된 환경을 위한 안전장치 - 제약을 다시 만듦)
+alter table reservations drop constraint if exists reservations_status_check;
+alter table reservations add constraint reservations_status_check
+  check (status in ('confirmed', 'cancelled', 'no_show'));
 
 -- RAG 기반 규정 위반 판단(checkRuleViolation) 결과 기록
 -- 하드코딩된 검증과 달리 오탐/미탐 가능성이 있어, 실제 정확도를 확인하고

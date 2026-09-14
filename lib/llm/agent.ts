@@ -3,7 +3,13 @@ import { callClaude, callClaudeWithTools, langfuse } from '@/lib/llm/client';
 import { tools } from '@/lib/llm/tools';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { searchDocuments } from '@/lib/rag/search';
-import { isOnHalfHourBoundary, isWeekday, isWithinOperatingHours } from '@/lib/llm/validation';
+import {
+  getNoShowRestrictionEnd,
+  isOnHalfHourBoundary,
+  isWeekday,
+  isWithinOperatingHours,
+  NO_SHOW_RESTRICTION_THRESHOLD,
+} from '@/lib/llm/validation';
 
 async function findResource(resourceName: string, select: string): Promise<any> {
   const normalized = resourceName.replace(/\s+/g, '');
@@ -133,6 +139,30 @@ ${context}
   await logRuleViolationCheck(args, 'ok', null);
 }
 
+async function checkNoShowRestriction(userId: string): Promise<void> {
+  const { data, error } = await supabaseAdmin
+    .from('reservations')
+    .select('start_time')
+    .eq('user_id', userId)
+    .eq('status', 'no_show')
+    .order('start_time', { ascending: false });
+
+  if (error) {
+    throw new Error(`노쇼 이력 조회 실패: ${error.message}`);
+  }
+
+  if (!data || data.length === 0) {
+    return;
+  }
+
+  const restrictionEnd = getNoShowRestrictionEnd(data.length, data[0].start_time);
+
+  if (restrictionEnd && new Date() < restrictionEnd) {
+    const untilDate = restrictionEnd.toISOString().slice(0, 10);
+    throw new Error(`노쇼가 ${NO_SHOW_RESTRICTION_THRESHOLD}회 이상 누적되어 ${untilDate}까지 예약이 제한됩니다.`);
+  }
+}
+
 async function createReservation(
   args: {
     resource_name: string;
@@ -143,6 +173,8 @@ async function createReservation(
   },
   userId: string
 ) {
+  await checkNoShowRestriction(userId);
+
   if (!isOnHalfHourBoundary(args.start_time) || !isOnHalfHourBoundary(args.end_time)) {
     throw new Error('예약은 30분 단위로만 가능합니다');
   }

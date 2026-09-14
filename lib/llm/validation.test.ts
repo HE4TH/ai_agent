@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { isOnHalfHourBoundary, isWeekday, isWithinOperatingHours } from './validation';
+import {
+  getNoShowRestrictionEnd,
+  isOnHalfHourBoundary,
+  isWeekday,
+  isWithinOperatingHours,
+} from './validation';
 
 describe('isOnHalfHourBoundary', () => {
   it('허용: 정각(00분)', () => {
@@ -61,5 +66,22 @@ describe('isWeekday', () => {
   it('서버 로컬 타임존과 무관하게 날짜 문자열 그대로의 요일을 판단한다', () => {
     // UTC 기준으로 파싱하므로, 로컬 타임존이 UTC-이든 UTC+이든 결과가 흔들리면 안 됨
     expect(isWeekday('2026-01-01')).toBe(true); // 2026-01-01은 목요일
+  });
+});
+
+describe('getNoShowRestrictionEnd', () => {
+  it('노쇼 1회면 제한 없음(null)', () => {
+    expect(getNoShowRestrictionEnd(1, '2026-09-01T00:00:00Z')).toBeNull();
+  });
+
+  it('노쇼 2회 이상이면 가장 최근 노쇼로부터 7일 뒤를 반환', () => {
+    const end = getNoShowRestrictionEnd(2, '2026-09-01T00:00:00Z');
+    expect(end).not.toBeNull();
+    expect(end!.toISOString()).toBe('2026-09-08T00:00:00.000Z');
+  });
+
+  it('노쇼가 더 많이 누적돼도(3회) 기준은 동일하게 최근 1건 기준', () => {
+    const end = getNoShowRestrictionEnd(3, '2026-09-01T00:00:00Z');
+    expect(end!.toISOString()).toBe('2026-09-08T00:00:00.000Z');
   });
 });
