@@ -150,3 +150,34 @@ create table if not exists rate_limits (
   window_start timestamptz not null default now(),
   request_count integer not null default 0
 );
+
+-- INSERT ... ON CONFLICT는 충돌하는 행에 대해 원자적으로 처리되므로,
+-- 동시에 여러 요청이 들어와도 request_count가 레이스 컨디션 없이 정확히 증가한다.
+create or replace function check_rate_limit(
+  p_user_id uuid,
+  p_window_seconds integer,
+  p_max_requests integer
+) returns boolean
+language plpgsql
+as $$
+declare
+  v_count integer;
+begin
+  insert into rate_limits (user_id, window_start, request_count)
+  values (p_user_id, now(), 1)
+  on conflict (user_id) do update set
+    request_count = case
+      when rate_limits.window_start < now() - (p_window_seconds || ' seconds')::interval
+        then 1
+      else rate_limits.request_count + 1
+    end,
+    window_start = case
+      when rate_limits.window_start < now() - (p_window_seconds || ' seconds')::interval
+        then now()
+      else rate_limits.window_start
+    end
+  returning request_count into v_count;
+
+  return v_count <= p_max_requests;
+end;
+$$;

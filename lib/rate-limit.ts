@@ -1,32 +1,18 @@
 import { supabaseAdmin } from '@/lib/supabase-admin';
 
-const WINDOW_MS = 60_000;
+const WINDOW_SECONDS = 60;
 const MAX_REQUESTS_PER_WINDOW = 20;
 
 export async function checkRateLimit(userId: string): Promise<boolean> {
-  const now = new Date();
+  const { data, error } = await supabaseAdmin.rpc('check_rate_limit', {
+    p_user_id: userId,
+    p_window_seconds: WINDOW_SECONDS,
+    p_max_requests: MAX_REQUESTS_PER_WINDOW,
+  });
 
-  const { data: row } = await supabaseAdmin
-    .from('rate_limits')
-    .select('window_start, request_count')
-    .eq('user_id', userId)
-    .single();
-
-  if (!row || now.getTime() - new Date(row.window_start).getTime() > WINDOW_MS) {
-    await supabaseAdmin
-      .from('rate_limits')
-      .upsert({ user_id: userId, window_start: now.toISOString(), request_count: 1 });
+  if (error) {
     return true;
   }
 
-  if (row.request_count >= MAX_REQUESTS_PER_WINDOW) {
-    return false;
-  }
-
-  await supabaseAdmin
-    .from('rate_limits')
-    .update({ request_count: row.request_count + 1 })
-    .eq('user_id', userId);
-
-  return true;
+  return data as boolean;
 }
